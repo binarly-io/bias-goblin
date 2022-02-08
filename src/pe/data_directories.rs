@@ -43,6 +43,7 @@ impl DataDirectories {
         }
         Ok(DataDirectories { data_directories })
     }
+
     pub fn get_export_table(&self) -> &Option<DataDirectory> {
         let idx = 0;
         &self.data_directories[idx]

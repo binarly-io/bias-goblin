@@ -3,8 +3,8 @@ use scroll::{Pread, Pwrite, SizeWith};
 
 use crate::pe::data_directories;
 use crate::pe::options;
-use crate::pe::section_table;
 use crate::pe::utils;
+use crate::pe::utils::PESectionTable;
 
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct DebugData<'a> {
@@ -13,10 +13,10 @@ pub struct DebugData<'a> {
 }
 
 impl<'a> DebugData<'a> {
-    pub fn parse(
+    pub fn parse<T: PESectionTable>(
         bytes: &'a [u8],
         dd: data_directories::DataDirectory,
-        sections: &[section_table::SectionTable],
+        sections: &[T],
         file_alignment: u32,
     ) -> error::Result<Self> {
         Self::parse_with_opts(
@@ -28,10 +28,10 @@ impl<'a> DebugData<'a> {
         )
     }
 
-    pub fn parse_with_opts(
+    pub fn parse_with_opts<T: PESectionTable>(
         bytes: &'a [u8],
         dd: data_directories::DataDirectory,
-        sections: &[section_table::SectionTable],
+        sections: &[T],
         file_alignment: u32,
         opts: &options::ParseOptions,
     ) -> error::Result<Self> {
@@ -77,10 +77,10 @@ pub const IMAGE_DEBUG_TYPE_BORLAND: u32 = 9;
 
 impl ImageDebugDirectory {
     #[allow(unused)]
-    fn parse(
+    fn parse<T: PESectionTable>(
         bytes: &[u8],
         dd: data_directories::DataDirectory,
-        sections: &[section_table::SectionTable],
+        sections: &[T],
         file_alignment: u32,
     ) -> error::Result<Self> {
         Self::parse_with_opts(
@@ -92,10 +92,10 @@ impl ImageDebugDirectory {
         )
     }
 
-    fn parse_with_opts(
+    fn parse_with_opts<T: PESectionTable>(
         bytes: &[u8],
         dd: data_directories::DataDirectory,
-        sections: &[section_table::SectionTable],
+        sections: &[T],
         file_alignment: u32,
         opts: &options::ParseOptions,
     ) -> error::Result<Self> {

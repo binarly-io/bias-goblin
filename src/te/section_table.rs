@@ -1,14 +1,11 @@
-use crate::error::{self, Error};
-use alloc::string::{String, ToString};
-use scroll::{ctx, Pread, Pwrite};
-
+use crate::error;
 use crate::pe::utils::PESectionTable;
+use scroll::{ctx, Pread, Pwrite};
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct SectionTable {
     pub name: [u8; 8],
-    pub real_name: Option<String>,
     pub virtual_size: u32,
     pub virtual_address: u32,
     pub size_of_raw_data: u32,
@@ -22,10 +19,7 @@ pub struct SectionTable {
 
 impl PESectionTable for SectionTable {
     fn name(&self) -> error::Result<&str> {
-        match self.real_name.as_ref() {
-            Some(s) => Ok(s),
-            None => Ok(self.name.pread(0)?),
-        }
+        Ok(self.name.pread(0)?)
     }
 
     fn virtual_size(&self) -> u32 {
@@ -67,42 +61,10 @@ impl PESectionTable for SectionTable {
 
 pub const SIZEOF_SECTION_TABLE: usize = 8 * 5;
 
-// Based on https://github.com/llvm-mirror/llvm/blob/af7b1832a03ab6486c42a40d21695b2c03b2d8a3/lib/Object/COFFObjectFile.cpp#L70
-// Decodes a string table entry in base 64 (//AAAAAA). Expects string without
-// prefixed slashes.
-fn base64_decode_string_entry(s: &str) -> Result<usize, ()> {
-    assert!(s.len() <= 6, "String too long, possible overflow.");
-
-    let mut val = 0;
-    for c in s.bytes() {
-        let v = if b'A' <= c && c <= b'Z' {
-            // 00..=25
-            c - b'A'
-        } else if b'a' <= c && c <= b'z' {
-            // 26..=51
-            c - b'a' + 26
-        } else if b'0' <= c && c <= b'9' {
-            // 52..=61
-            c - b'0' + 52
-        } else if c == b'+' {
-            // 62
-            62
-        } else if c == b'/' {
-            // 63
-            63
-        } else {
-            return Err(());
-        };
-        val = val * 64 + v as usize;
-    }
-    Ok(val)
-}
-
 impl SectionTable {
     pub fn parse(
         bytes: &[u8],
         offset: &mut usize,
-        string_table_offset: usize,
     ) -> error::Result<Self> {
         let mut table = SectionTable::default();
         let mut name = [0u8; 8];
@@ -119,83 +81,9 @@ impl SectionTable {
         table.number_of_linenumbers = bytes.gread_with(offset, scroll::LE)?;
         table.characteristics = bytes.gread_with(offset, scroll::LE)?;
 
-        if let Some(idx) = table.name_offset()? {
-            table.real_name = Some(bytes.pread::<&str>(string_table_offset + idx)?.to_string());
-        }
         Ok(table)
     }
 
-    pub fn name_offset(&self) -> error::Result<Option<usize>> {
-        // Based on https://github.com/llvm-mirror/llvm/blob/af7b1832a03ab6486c42a40d21695b2c03b2d8a3/lib/Object/COFFObjectFile.cpp#L1054
-        if self.name[0] == b'/' {
-            let idx: usize = if self.name[1] == b'/' {
-                let b64idx = self.name.pread::<&str>(2)?;
-                base64_decode_string_entry(b64idx).map_err(|_| {
-                    Error::Malformed(format!(
-                        "Invalid indirect section name //{}: base64 decoding failed",
-                        b64idx
-                    ))
-                })?
-            } else {
-                let name = self.name.pread::<&str>(1)?;
-                name.parse().map_err(|err| {
-                    Error::Malformed(format!("Invalid indirect section name /{}: {}", name, err))
-                })?
-            };
-            Ok(Some(idx))
-        } else {
-            Ok(None)
-        }
-    }
-
-    #[allow(clippy::useless_let_if_seq)]
-    pub fn set_name_offset(&mut self, mut idx: usize) -> error::Result<()> {
-        if idx <= 9_999_999 {
-            // 10^7 - 1
-            // write!(&mut self.name[1..], "{}", idx) without using io::Write.
-            // We write into a temporary since we calculate digits starting at the right.
-            let mut name = [0; 7];
-            let mut len = 0;
-            if idx == 0 {
-                name[6] = b'0';
-                len = 1;
-            } else {
-                while idx != 0 {
-                    let rem = (idx % 10) as u8;
-                    idx /= 10;
-                    name[6 - len] = b'0' + rem;
-                    len += 1;
-                }
-            }
-            self.name = [0; 8];
-            self.name[0] = b'/';
-            self.name[1..][..len].copy_from_slice(&name[7 - len..]);
-            Ok(())
-        } else if idx as u64 <= 0xfff_fff_fff {
-            // 64^6 - 1
-            self.name[0] = b'/';
-            self.name[1] = b'/';
-            for i in 0..6 {
-                let rem = (idx % 64) as u8;
-                idx /= 64;
-                let c = match rem {
-                    0..=25 => b'A' + rem,
-                    26..=51 => b'a' + rem - 26,
-                    52..=61 => b'0' + rem - 52,
-                    62 => b'+',
-                    63 => b'/',
-                    _ => unreachable!(),
-                };
-                self.name[7 - i] = c;
-            }
-            Ok(())
-        } else {
-            Err(Error::Malformed(format!(
-                "Invalid section name offset: {}",
-                idx
-            )))
-        }
-    }
 }
 
 impl ctx::SizeWith<scroll::Endian> for SectionTable {
@@ -284,29 +172,3 @@ pub const IMAGE_SCN_MEM_EXECUTE: u32 = 0x2000_0000;
 pub const IMAGE_SCN_MEM_READ: u32 = 0x4000_0000;
 /// The section can be written to.
 pub const IMAGE_SCN_MEM_WRITE: u32 = 0x8000_0000;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn set_name_offset() {
-        let mut section = SectionTable::default();
-        for &(offset, name) in [
-            (0usize, b"/0\0\0\0\0\0\0"),
-            (1, b"/1\0\0\0\0\0\0"),
-            (9_999_999, b"/9999999"),
-            (10_000_000, b"//AAmJaA"),
-            #[cfg(target_pointer_width = "64")]
-            (0xfff_fff_fff, b"////////"),
-        ]
-        .iter()
-        {
-            section.set_name_offset(offset).unwrap();
-            assert_eq!(&section.name, name);
-            assert_eq!(section.name_offset().unwrap(), Some(offset));
-        }
-        #[cfg(target_pointer_width = "64")]
-        assert!(section.set_name_offset(0x1_000_000_000).is_err());
-    }
-}

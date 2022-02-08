@@ -3,12 +3,31 @@ use alloc::string::ToString;
 use scroll::Pread;
 
 use super::options;
-use super::section_table;
 
 use crate::pe::data_directories::DataDirectory;
+use crate::pe::relocation;
 use core::cmp;
 
 use log::debug;
+
+pub trait PESectionTable: core::fmt::Debug {
+    fn name(&self) -> error::Result<&str>;
+    fn virtual_size(&self) -> u32;
+    fn virtual_address(&self) -> u32;
+    fn size_of_raw_data(&self) -> u32;
+    fn pointer_to_raw_data(&self) -> u32;
+    fn pointer_to_relocations(&self) -> u32;
+    fn pointer_to_linenumbers(&self) -> u32;
+    fn number_of_relocations(&self) -> u16;
+    fn number_of_linenumbers(&self) -> u16;
+    fn characteristics(&self) -> u32;
+
+    fn relocations<'a>(&self, bytes: &'a [u8]) -> error::Result<relocation::Relocations<'a>> {
+        let offset = self.pointer_to_relocations() as usize;
+        let number = self.number_of_relocations() as usize;
+        relocation::Relocations::parse(bytes, offset, number)
+    }
+}
 
 pub fn is_in_range(rva: usize, r1: usize, r2: usize) -> bool {
     r1 <= rva && rva < r2
@@ -22,7 +41,7 @@ fn aligned_pointer_to_raw_data(pointer_to_raw_data: usize) -> usize {
 }
 
 #[inline]
-fn section_read_size(section: &section_table::SectionTable, file_alignment: u32) -> usize {
+fn section_read_size<T: PESectionTable>(section: &T, file_alignment: u32) -> usize {
     fn round_size(size: usize) -> usize {
         const PAGE_MASK: usize = 0xfff;
         (size + PAGE_MASK) & !PAGE_MASK
@@ -51,13 +70,13 @@ fn section_read_size(section: &section_table::SectionTable, file_alignment: u32)
     // }
 
     let file_alignment = file_alignment as usize;
-    let size_of_raw_data = section.size_of_raw_data as usize;
-    let virtual_size = section.virtual_size as usize;
+    let size_of_raw_data = section.size_of_raw_data() as usize;
+    let virtual_size = section.virtual_size() as usize;
     let read_size = {
         let read_size =
-            ((section.pointer_to_raw_data as usize + size_of_raw_data + file_alignment - 1)
+            ((section.pointer_to_raw_data() as usize + size_of_raw_data + file_alignment - 1)
                 & !(file_alignment - 1))
-                - aligned_pointer_to_raw_data(section.pointer_to_raw_data as usize);
+                - aligned_pointer_to_raw_data(section.pointer_to_raw_data() as usize);
         cmp::min(read_size, round_size(size_of_raw_data))
     };
 
@@ -68,13 +87,13 @@ fn section_read_size(section: &section_table::SectionTable, file_alignment: u32)
     }
 }
 
-fn rva2offset(rva: usize, section: &section_table::SectionTable) -> usize {
-    (rva - section.virtual_address as usize)
-        + aligned_pointer_to_raw_data(section.pointer_to_raw_data as usize)
+fn rva2offset<T: PESectionTable>(rva: usize, section: &T) -> usize {
+    (rva - section.virtual_address() as usize)
+        + aligned_pointer_to_raw_data(section.pointer_to_raw_data() as usize)
 }
 
-fn is_in_section(rva: usize, section: &section_table::SectionTable, file_alignment: u32) -> bool {
-    let section_rva = section.virtual_address as usize;
+fn is_in_section<T: PESectionTable>(rva: usize, section: &T, file_alignment: u32) -> bool {
+    let section_rva = section.virtual_address() as usize;
     is_in_range(
         rva,
         section_rva,
@@ -82,9 +101,9 @@ fn is_in_section(rva: usize, section: &section_table::SectionTable, file_alignme
     )
 }
 
-pub fn find_offset(
+pub fn find_offset<T: PESectionTable>(
     rva: usize,
-    sections: &[section_table::SectionTable],
+    sections: &[T],
     file_alignment: u32,
     opts: &options::ParseOptions,
 ) -> Option<usize> {
@@ -94,11 +113,11 @@ pub fn find_offset(
                 "Checking {} for {:#x} ∈ {:#x}..{:#x}",
                 section.name().unwrap_or(""),
                 rva,
-                section.virtual_address,
-                section.virtual_address + section.virtual_size
+                section.virtual_address(),
+                section.virtual_address() + section.virtual_size()
             );
-            if is_in_section(rva, &section, file_alignment) {
-                let offset = rva2offset(rva, &section);
+            if is_in_section(rva, section, file_alignment) {
+                let offset = rva2offset(rva, section);
                 debug!(
                     "Found in section {}({}), remapped into offset {:#x}",
                     section.name().unwrap_or(""),
@@ -114,9 +133,9 @@ pub fn find_offset(
     }
 }
 
-pub fn find_offset_or(
+pub fn find_offset_or<T: PESectionTable>(
     rva: usize,
-    sections: &[section_table::SectionTable],
+    sections: &[T],
     file_alignment: u32,
     opts: &options::ParseOptions,
     msg: &str,
@@ -125,10 +144,10 @@ pub fn find_offset_or(
         .ok_or_else(|| error::Error::Malformed(msg.to_string()))
 }
 
-pub fn try_name<'a>(
+pub fn try_name<'a, T: PESectionTable>(
     bytes: &'a [u8],
     rva: usize,
-    sections: &[section_table::SectionTable],
+    sections: &[T],
     file_alignment: u32,
     opts: &options::ParseOptions,
 ) -> error::Result<&'a str> {
@@ -141,14 +160,15 @@ pub fn try_name<'a>(
     }
 }
 
-pub fn get_data<'a, T>(
+pub fn get_data<'a, U, T>(
     bytes: &'a [u8],
-    sections: &[section_table::SectionTable],
+    sections: &[U],
     directory: DataDirectory,
     file_alignment: u32,
 ) -> error::Result<T>
 where
     T: scroll::ctx::TryFromCtx<'a, scroll::Endian, Error = scroll::Error>,
+    U: PESectionTable,
 {
     get_data_with_opts(
         bytes,
@@ -159,15 +179,16 @@ where
     )
 }
 
-pub fn get_data_with_opts<'a, T>(
+pub fn get_data_with_opts<'a, U, T>(
     bytes: &'a [u8],
-    sections: &[section_table::SectionTable],
+    sections: &[U],
     directory: DataDirectory,
     file_alignment: u32,
     opts: &options::ParseOptions,
 ) -> error::Result<T>
 where
     T: scroll::ctx::TryFromCtx<'a, scroll::Endian, Error = scroll::Error>,
+    U: PESectionTable,
 {
     let rva = directory.virtual_address as usize;
     let offset = find_offset(rva, sections, file_alignment, opts)

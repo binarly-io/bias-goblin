@@ -42,6 +42,9 @@
 //!                 Object::PE(pe) => {
 //!                     println!("pe: {:#?}", &pe);
 //!                 },
+//!                 Object::TE(te) => {
+//!                     println!("te: {:#?}", &te);
+//!                 },
 //!                 Object::Mach(mach) => {
 //!                     println!("mach: {:#?}", &mach);
 //!                 },
@@ -224,6 +227,7 @@ if_everything! {
         Mach(HintData),
         MachFat(usize),
         PE,
+        TE,
         Archive,
         Unknown(u64),
     }
@@ -247,6 +251,8 @@ if_everything! {
             Ok(Hint::Archive)
         } else if (&bytes[0..2]).pread_with::<u16>(0, LE)? == pe::header::DOS_MAGIC {
             Ok(Hint::PE)
+        } else if (&bytes[0..2]).pread_with::<u16>(0, LE)? == te::header::TE_MAGIC {
+            Ok(Hint::TE)
         } else {
             let (magic, maybe_ctx) = mach::parse_magic_and_ctx(bytes, 0)?;
             match magic {
@@ -297,6 +303,8 @@ if_everything! {
         Elf(elf::Elf<'a>),
         /// A PE32/PE32+!
         PE(pe::PE<'a>),
+        /// A TE!
+        TE(te::TE<'a>),
         /// A 32/64-bit Mach-o binary _OR_ it is a multi-architecture binary container!
         Mach(mach::Mach<'a>),
         /// A Unix archive
@@ -314,6 +322,7 @@ if_everything! {
                     Hint::Mach(_) | Hint::MachFat(_) => Ok(Object::Mach(mach::Mach::parse(bytes)?)),
                     Hint::Archive => Ok(Object::Archive(archive::Archive::parse(bytes)?)),
                     Hint::PE => Ok(Object::PE(pe::PE::parse(bytes)?)),
+                    Hint::TE => Ok(Object::TE(te::TE::parse(bytes)?)),
                     Hint::Unknown(magic) => Ok(Object::Unknown(magic))
                 }
             } else {
@@ -370,6 +379,9 @@ pub mod mach;
 
 #[cfg(any(feature = "pe32", feature = "pe64"))]
 pub mod pe;
+
+#[cfg(feature = "te")]
+pub mod te;
 
 #[cfg(feature = "archive")]
 pub mod archive;
