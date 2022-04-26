@@ -1,7 +1,7 @@
 use crate::error;
-use scroll::{ctx, Pread, SizeWith, Pwrite};
+use scroll::{ctx, Pread, Pwrite, SizeWith};
 
-use crate::te::data_directories::{SIZEOF_DATA_DIRECTORIES, DataDirectories};
+use crate::te::data_directories::{DataDirectories, SIZEOF_DATA_DIRECTORIES};
 use crate::te::section_table;
 
 pub const SIZEOF_TE_HEADER: usize = 24 + SIZEOF_DATA_DIRECTORIES;
@@ -132,7 +132,7 @@ impl Header {
 
         for i in 0..nsections {
             let section =
-                section_table::SectionTable::parse(bytes, offset)?;
+                section_table::SectionTable::parse(bytes, offset, self.stripped_size as u32)?;
             log::debug!("({}) {:#?}", i, section);
             sections.push(section);
         }

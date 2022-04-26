@@ -2,6 +2,8 @@ use crate::error;
 use crate::pe::utils::PESectionTable;
 use scroll::{ctx, Pread, Pwrite};
 
+use super::header::SIZEOF_TE_HEADER;
+
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct SectionTable {
@@ -15,6 +17,7 @@ pub struct SectionTable {
     pub number_of_relocations: u16,
     pub number_of_linenumbers: u16,
     pub characteristics: u32,
+    pub stripped_size: u32,
 }
 
 impl PESectionTable for SectionTable {
@@ -36,14 +39,20 @@ impl PESectionTable for SectionTable {
 
     fn pointer_to_raw_data(&self) -> u32 {
         self.pointer_to_raw_data
+            .wrapping_sub(self.stripped_size)
+            .wrapping_add(SIZEOF_TE_HEADER as u32)
     }
 
     fn pointer_to_relocations(&self) -> u32 {
         self.pointer_to_relocations
+            .wrapping_sub(self.stripped_size)
+            .wrapping_add(SIZEOF_TE_HEADER as u32)
     }
 
     fn pointer_to_linenumbers(&self) -> u32 {
         self.pointer_to_linenumbers
+            .wrapping_sub(self.stripped_size)
+            .wrapping_add(SIZEOF_TE_HEADER as u32)
     }
 
     fn number_of_relocations(&self) -> u16 {
@@ -62,12 +71,10 @@ impl PESectionTable for SectionTable {
 pub const SIZEOF_SECTION_TABLE: usize = 8 * 5;
 
 impl SectionTable {
-    pub fn parse(
-        bytes: &[u8],
-        offset: &mut usize,
-    ) -> error::Result<Self> {
+    pub fn parse(bytes: &[u8], offset: &mut usize, stripped_size: u32) -> error::Result<Self> {
         let mut table = SectionTable::default();
         let mut name = [0u8; 8];
+
         name.copy_from_slice(bytes.gread_with(offset, 8)?);
 
         table.name = name;
@@ -80,10 +87,10 @@ impl SectionTable {
         table.number_of_relocations = bytes.gread_with(offset, scroll::LE)?;
         table.number_of_linenumbers = bytes.gread_with(offset, scroll::LE)?;
         table.characteristics = bytes.gread_with(offset, scroll::LE)?;
+        table.stripped_size = stripped_size;
 
         Ok(table)
     }
-
 }
 
 impl ctx::SizeWith<scroll::Endian> for SectionTable {
