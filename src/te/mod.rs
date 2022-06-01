@@ -1,4 +1,10 @@
+use scroll::Pread;
+
 use crate::error;
+use crate::pe::relocation::BaseRelocations;
+use crate::pe::utils;
+
+use self::header::SIZEOF_TE_HEADER;
 
 pub mod debug;
 pub mod header;
@@ -36,6 +42,28 @@ impl<'a> TE<'a> {
             sections,
             debug_data,
         })
+    }
+
+    pub fn base_relocations(&self, bytes: &'a [u8]) -> Option<BaseRelocations<'a>> {
+        let dds = self.header.data_directories;
+        let relocs = dds.get_base_relocation_table().as_ref()?;
+
+        let offset = utils::find_raw_offset(
+            relocs.virtual_address as usize,
+            &self.sections,
+            1,
+        )?;
+
+        let reloc_bytes = bytes.pread_with(offset, relocs.size as usize).ok()?;
+
+        BaseRelocations::parse(reloc_bytes).ok()
+    }
+
+    pub fn adjust_offset(&self, offset: usize) -> usize {
+        offset
+            .wrapping_sub(self.header.stripped_size as usize)
+            .wrapping_add(SIZEOF_TE_HEADER)
+
     }
 
     pub fn entry_point(&self) -> u64 {

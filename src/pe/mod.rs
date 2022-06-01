@@ -4,6 +4,7 @@
 // TODO: panics with unwrap on None for apisetschema.dll, fhuxgraphics.dll and some others
 
 use alloc::vec::Vec;
+use scroll::Pread;
 
 pub mod characteristic;
 pub mod data_directories;
@@ -24,6 +25,8 @@ use crate::error;
 use crate::strtab;
 
 use log::debug;
+
+use self::relocation::BaseRelocations;
 
 #[derive(Debug)]
 /// An analyzed PE32/PE32+ binary
@@ -195,6 +198,23 @@ impl<'a> PE<'a> {
             debug_data,
             exception_data,
         })
+    }
+
+    pub fn base_relocations(&self, bytes: &'a [u8]) -> Option<BaseRelocations<'a>> {
+        let opt = self.header.optional_header.as_ref()?;
+        let dds = &opt.data_directories;
+        let file_alignment = &opt.windows_fields.file_alignment;
+
+        let relocs = dds.get_base_relocation_table().as_ref()?;
+        let offset = utils::find_raw_offset(
+            relocs.virtual_address as usize,
+            &self.sections,
+            *file_alignment,
+        )?;
+
+        let reloc_bytes = bytes.pread_with(offset, relocs.size as usize).ok()?;
+
+        BaseRelocations::parse(reloc_bytes).ok()
     }
 }
 

@@ -1,3 +1,5 @@
+use core::mem::size_of;
+
 use crate::error;
 use scroll::{IOread, IOwrite, Pread, Pwrite, SizeWith};
 
@@ -128,6 +130,121 @@ impl<'a> Iterator for Relocations<'a> {
                     .gread_with(&mut self.offset, scroll::LE)
                     .unwrap(),
             )
+        }
+    }
+}
+
+//
+// Based relocation types. (from object)
+//
+
+pub const IMAGE_REL_BASED_ABSOLUTE: u16 = 0;
+pub const IMAGE_REL_BASED_HIGH: u16 = 1;
+pub const IMAGE_REL_BASED_LOW: u16 = 2;
+pub const IMAGE_REL_BASED_HIGHLOW: u16 = 3;
+pub const IMAGE_REL_BASED_HIGHADJ: u16 = 4;
+pub const IMAGE_REL_BASED_MACHINE_SPECIFIC_5: u16 = 5;
+pub const IMAGE_REL_BASED_RESERVED: u16 = 6;
+pub const IMAGE_REL_BASED_MACHINE_SPECIFIC_7: u16 = 7;
+pub const IMAGE_REL_BASED_MACHINE_SPECIFIC_8: u16 = 8;
+pub const IMAGE_REL_BASED_MACHINE_SPECIFIC_9: u16 = 9;
+pub const IMAGE_REL_BASED_DIR64: u16 = 10;
+
+//
+// Platform-specific based relocation types. (from object)
+//
+
+pub const IMAGE_REL_BASED_IA64_IMM64: u16 = 9;
+
+pub const IMAGE_REL_BASED_MIPS_JMPADDR: u16 = 5;
+pub const IMAGE_REL_BASED_MIPS_JMPADDR16: u16 = 9;
+
+pub const IMAGE_REL_BASED_ARM_MOV32: u16 = 5;
+pub const IMAGE_REL_BASED_THUMB_MOV32: u16 = 7;
+
+pub const IMAGE_REL_BASED_RISCV_HIGH20: u16 = 5;
+pub const IMAGE_REL_BASED_RISCV_LOW12I: u16 = 7;
+pub const IMAGE_REL_BASED_RISCV_LOW12S: u16 = 8;
+
+/// A base relocation.
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, Pread, Pwrite, IOread, IOwrite, SizeWith)]
+pub struct BaseRelocationHeader {
+    pub virtual_address: u32,
+    pub size_of_block: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, Pread, Pwrite, IOread, IOwrite, SizeWith)]
+pub struct BaseRelocationEntry {
+    pub type_offset: u16,
+}
+
+impl BaseRelocationEntry {
+    pub fn typ(&self) -> u16 {
+        self.type_offset >> 12
+    }
+
+    pub fn offset(&self) -> u16 {
+        self.type_offset & 0x0fff
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, Pread, Pwrite, IOread, IOwrite, SizeWith)]
+pub struct BaseRelocation {
+    pub header: BaseRelocationHeader,
+    pub entry: BaseRelocationEntry,
+}
+
+#[derive(Default)]
+pub struct BaseRelocations<'a> {
+    block_header: BaseRelocationHeader,
+    block_offset: usize,
+    offset: usize,
+    bytes: &'a [u8],
+}
+
+impl<'a> BaseRelocations<'a> {
+    pub fn parse(bytes: &'a [u8]) -> error::Result<BaseRelocations<'a>> {
+        Ok(BaseRelocations {
+            block_header: Default::default(),
+            block_offset: 0,
+            offset: 0,
+            bytes,
+        })
+    }
+}
+
+impl<'a> Iterator for BaseRelocations<'a> {
+    type Item = BaseRelocation;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.block_offset < self.block_header.size_of_block as usize {
+            // read a new entry
+            let bytes = self.bytes
+                .pread_with::<&[u8]>(self.offset, self.block_header.size_of_block as usize)
+                .ok()?;
+
+            bytes.gread_with::<BaseRelocationEntry>(&mut self.block_offset, scroll::LE)
+                .ok()
+                .map(|entry| BaseRelocation {
+                    header: self.block_header,
+                    entry,
+                })
+        } else {
+            // read a new header
+            self.offset += self.block_offset;
+            self.block_offset = 0;
+
+            let bytes = self
+                .bytes
+                .pread_with::<&[u8]>(self.offset, size_of::<BaseRelocationHeader>())
+                .ok()?;
+
+            self.block_header = bytes.gread_with(&mut self.block_offset, scroll::LE).ok()?;
+
+            self.next()
         }
     }
 }

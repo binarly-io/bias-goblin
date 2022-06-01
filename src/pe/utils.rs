@@ -101,6 +101,35 @@ fn is_in_section<T: PESectionTable>(rva: usize, section: &T, file_alignment: u32
     )
 }
 
+pub fn find_raw_offset<T: PESectionTable>(
+    rva: usize,
+    sections: &[T],
+    file_alignment: u32,
+) -> Option<usize> {
+    for (i, section) in sections.iter().enumerate() {
+        debug!(
+            "Checking {} for {:#x} ∈ {:#x}..{:#x}",
+            section.name().unwrap_or(""),
+            rva,
+            section.virtual_address(),
+            section.virtual_address().wrapping_add(section.virtual_size())
+        );
+        if is_in_section(rva, section, file_alignment) {
+            let offset = (section.pointer_to_raw_data() as usize)
+                .wrapping_add(rva.wrapping_sub(section.virtual_address() as usize));
+
+            debug!(
+                "Found in section {}({}), remapped into offset {:#x}",
+                section.name().unwrap_or(""),
+                i,
+                offset
+            );
+            return Some(offset);
+        }
+    }
+    None
+}
+
 pub fn find_offset<T: PESectionTable>(
     rva: usize,
     sections: &[T],
