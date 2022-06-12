@@ -197,7 +197,7 @@ pub struct BaseRelocation {
     pub entry: BaseRelocationEntry,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct BaseRelocations<'a> {
     block_header: BaseRelocationHeader,
     block_offset: usize,
