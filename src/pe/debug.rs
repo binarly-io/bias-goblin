@@ -97,10 +97,10 @@ impl ImageDebugDirectory {
         dd: data_directories::DataDirectory,
         sections: &[T],
         file_alignment: u32,
-        opts: &options::ParseOptions,
+        _opts: &options::ParseOptions,
     ) -> error::Result<Self> {
         let rva = dd.virtual_address as usize;
-        let offset = utils::find_offset(rva, sections, file_alignment, opts).ok_or_else(|| {
+        let offset = utils::find_raw_offset(rva, sections, file_alignment).ok_or_else(|| {
             error::Error::Malformed(format!(
                 "Cannot map ImageDebugDirectory rva {:#x} into offset",
                 rva
