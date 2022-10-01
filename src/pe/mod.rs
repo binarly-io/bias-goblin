@@ -114,7 +114,7 @@ impl<'a> PE<'a> {
                         &sections,
                         file_alignment,
                         opts,
-                    )?;
+                    ).unwrap_or_default();
                     name = ed.name;
                     debug!("name: {:#?}", name);
                     export_data = Some(ed);
@@ -129,7 +129,7 @@ impl<'a> PE<'a> {
                         &sections,
                         file_alignment,
                         opts,
-                    )?
+                    ).ok()
                 } else {
                     import::ImportData::parse_with_opts::<u32>(
                         bytes,
@@ -137,32 +137,36 @@ impl<'a> PE<'a> {
                         &sections,
                         file_alignment,
                         opts,
-                    )?
+                    ).ok()
                 };
                 debug!("import data {:#?}", id);
-                if is_64 {
-                    imports = import::Import::parse::<u64>(bytes, &id, &sections)?
+                if let Some(id) = id {
+                    if is_64 {
+                        imports = import::Import::parse::<u64>(bytes, &id, &sections).unwrap_or_default();
+                    } else {
+                        imports = import::Import::parse::<u32>(bytes, &id, &sections).unwrap_or_default();
+                    }
+                    libraries = id
+                        .import_data
+                        .iter()
+                        .map(|data| data.name)
+                        .collect::<Vec<&'a str>>();
+                    libraries.sort();
+                    libraries.dedup();
+                    import_data = Some(id);
                 } else {
-                    imports = import::Import::parse::<u32>(bytes, &id, &sections)?
+                    import_data = None;
                 }
-                libraries = id
-                    .import_data
-                    .iter()
-                    .map(|data| data.name)
-                    .collect::<Vec<&'a str>>();
-                libraries.sort();
-                libraries.dedup();
-                import_data = Some(id);
             }
             debug!("imports: {:#?}", imports);
             if let Some(debug_table) = *optional_header.data_directories.get_debug_table() {
-                debug_data = Some(debug::DebugData::parse_with_opts(
+                debug_data = debug::DebugData::parse_with_opts(
                     bytes,
                     debug_table,
                     &sections,
                     file_alignment,
                     opts,
-                )?);
+                ).ok();
             }
 
             if header.coff_header.machine == header::COFF_MACHINE_X86_64 {
@@ -171,13 +175,13 @@ impl<'a> PE<'a> {
                 if let Some(exception_table) =
                     *optional_header.data_directories.get_exception_table()
                 {
-                    exception_data = Some(exception::ExceptionData::parse_with_opts(
+                    exception_data = exception::ExceptionData::parse_with_opts(
                         bytes,
                         exception_table,
                         &sections,
                         file_alignment,
                         opts,
-                    )?);
+                    ).ok();
                 }
             }
         }
