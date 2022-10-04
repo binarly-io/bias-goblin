@@ -6,9 +6,9 @@ use crate::pe::utils;
 
 use self::header::SIZEOF_TE_HEADER;
 
+pub mod data_directories;
 pub mod debug;
 pub mod header;
-pub mod data_directories;
 pub mod section_table;
 
 #[derive(Debug)]
@@ -29,12 +29,28 @@ impl<'a> TE<'a> {
         let mut debug_data = None;
 
         if let Some(debug_table) = *header.data_directories.get_debug_table() {
-            debug_data = Some(debug::DebugData::parse(
+            let image_debug_directory = debug::ImageDebugDirectory::parse(
                 bytes,
                 debug_table,
                 &sections,
                 0x10,
-            )?);
+            )?;
+
+            // NOTE: we need to adjust the pointer to raw data
+            let codeview_pdb70_debug_info = debug::CodeviewPDB70DebugInfo::parse(
+                bytes,
+                &debug::ImageDebugDirectory {
+                    pointer_to_raw_data: image_debug_directory.pointer_to_raw_data
+                        .wrapping_sub(header.stripped_size as u32)
+                        .wrapping_add(SIZEOF_TE_HEADER as u32),
+                    ..image_debug_directory
+                },
+            )?;
+
+            debug_data = Some(debug::DebugData {
+                image_debug_directory,
+                codeview_pdb70_debug_info,
+            });
         }
 
         Ok(Self {
@@ -48,11 +64,7 @@ impl<'a> TE<'a> {
         let dds = self.header.data_directories;
         let relocs = dds.get_base_relocation_table().as_ref()?;
 
-        let offset = utils::find_raw_offset(
-            relocs.virtual_address as usize,
-            &self.sections,
-            1,
-        )?;
+        let offset = utils::find_raw_offset(relocs.virtual_address as usize, &self.sections, 1)?;
 
         let reloc_bytes = bytes.pread_with(offset, relocs.size as usize).ok()?;
 
@@ -63,7 +75,6 @@ impl<'a> TE<'a> {
         offset
             .wrapping_sub(self.header.stripped_size as usize)
             .wrapping_add(SIZEOF_TE_HEADER)
-
     }
 
     pub fn entry_point(&self) -> u64 {

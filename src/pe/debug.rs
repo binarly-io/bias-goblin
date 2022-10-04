@@ -76,8 +76,7 @@ pub const IMAGE_DEBUG_TYPE_FIXUP: u32 = 6;
 pub const IMAGE_DEBUG_TYPE_BORLAND: u32 = 9;
 
 impl ImageDebugDirectory {
-    #[allow(unused)]
-    fn parse<T: PESectionTable>(
+    pub fn parse<T: PESectionTable>(
         bytes: &[u8],
         dd: data_directories::DataDirectory,
         sections: &[T],
@@ -92,7 +91,7 @@ impl ImageDebugDirectory {
         )
     }
 
-    fn parse_with_opts<T: PESectionTable>(
+    pub fn parse_with_opts<T: PESectionTable>(
         bytes: &[u8],
         dd: data_directories::DataDirectory,
         sections: &[T],
