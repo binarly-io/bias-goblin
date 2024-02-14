@@ -42,6 +42,8 @@ pub const PT_LOPROC: u32 = 0x7000_0000;
 pub const PT_ARM_EXIDX: u32 = 0x7000_0001;
 /// End of processor-specific
 pub const PT_HIPROC: u32 = 0x7fff_ffff;
+/// PaX flags
+pub const PT_PAX_FLAGS: u32 = 0x65041580;
 
 /* Legal values for p_flags (segment flags).  */
 
@@ -55,6 +57,24 @@ pub const PF_R: u32 = 1 << 2;
 pub const PF_MASKOS: u32 = 0x0ff0_0000;
 /// Bits reserved for processor-specific usage
 pub const PF_MASKPROC: u32 = 0xf000_0000;
+/// PaX PAGEEXEC
+pub const PF_PAGEEXEC: u32 = 1 << 4;
+pub const PF_NOPAGEEXEC: u32 = 1 << 5;
+/// PaX SEGMEXEC
+pub const PF_SEGMEXEC: u32 = 1 << 6;
+pub const PF_NOSEGMEXEC: u32 = 1 << 7;
+/// PaX MPROTECT
+pub const PF_MPROTECT: u32 = 1 << 8;
+pub const PF_NOMPROTECT: u32 = 1 << 9;
+/// PaX RANDEXEC
+pub const PF_RANDEXEC: u32 = 1 << 10;
+pub const PF_NORANDEXEC: u32 = 1 << 11;
+/// PaX EMUTRAMP
+pub const PF_EMUTRAMP: u32 = 1 << 12;
+pub const PF_NOEMUTRAMP: u32 = 1 << 13;
+/// PaX RANDMMAP
+pub const PF_RANDMMAP: u32 = 1 << 14;
+pub const PF_NORANDMMAP: u32 = 1 << 15;
 
 pub fn pt_to_str(pt: u32) -> &'static str {
     match pt {
@@ -77,6 +97,7 @@ pub fn pt_to_str(pt: u32) -> &'static str {
         PT_LOPROC => "PT_LOPROC",
         PT_HIPROC => "PT_HIPROC",
         PT_ARM_EXIDX => "PT_ARM_EXIDX",
+        PT_PAX_FLAGS => "PT_PAX_FLAGS",
         _ => "UNKNOWN_PT",
     }
 }
