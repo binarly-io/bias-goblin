@@ -223,7 +223,7 @@ if_sylvan! {
             // we follow the implementation in the `file` tool:
             // 1. https://github.com/file/file/blob/3021bd5ae3494c7c9193e7c95f3afcb2c2d22d4a/src/readelf.c#L1409
             // 2. https://github.com/file/file/blob/3021bd5ae3494c7c9193e7c95f3afcb2c2d22d4a/src/readelf.c#L
-    
+
             !self.section_headers.iter().any(|shdr| {
                 self.shdr_strtab.get_at(shdr.sh_name) == Some(".debug_info")
                     || shdr.sh_type == section_header::SHT_SYMTAB
