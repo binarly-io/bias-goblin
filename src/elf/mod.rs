@@ -37,6 +37,8 @@
 //! To use the automagic ELF datatype union parser, you _must_ enable/opt-in to the  `elf64`, `elf32`, and
 //! `endian_fd` features if you disable `default`.
 
+use crate::elf64::dynamic::DF_1_PIE;
+
 #[macro_use]
 pub(crate) mod gnu_hash;
 
@@ -228,6 +230,16 @@ if_sylvan! {
                 self.shdr_strtab.get_at(shdr.sh_name) == Some(".debug_info")
                     || shdr.sh_type == section_header::SHT_SYMTAB
             })
+        }
+
+        pub fn is_pie(&self) -> bool {
+            let mut is_pie = false;
+
+            if let Some(dynamic) = &self.dynamic {
+                let dyn_info = &dynamic.info;
+                is_pie = dyn_info.flags_1 & DF_1_PIE != 0;
+            }
+            is_pie
         }
 
         /// Parses the contents to get the Header only. This `bytes` buffer should contain at least the length for parsing Header.
