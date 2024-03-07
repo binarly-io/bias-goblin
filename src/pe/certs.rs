@@ -27,6 +27,7 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for WinCertificate<'a> {
         let offset = &mut 0;
         let header = from.gread_with::<WinCertificateHeader>(offset, ctx)?;
         let bytes = from.gread_with::<&'a [u8]>(offset, header.dw_length as usize - *offset)?;
+        let _pad = from.gread_with::<&'a [u8]>(offset, header.dw_length as usize % 8)?;
 
         let cert = Self { header, bytes };
 
@@ -67,6 +68,7 @@ impl<'a> Iterator for WinCertificates<'a> {
             .bytes
             .gread_with::<WinCertificate>(&mut self.offset, scroll::LE)
             .ok()?;
+
         Some(cert)
     }
 }
@@ -77,15 +79,15 @@ mod tests {
 
     #[test]
     fn parse_certs_table() {
-        let file = include_bytes!("/tmp/HelloWorld-Signed.efi");
+        let file = include_bytes!("/tmp/HelloWorld-MultiCerts.efi");
         let file = &file[..];
         let pe = PE::parse(file).unwrap();
-        let mut certs = pe.certificates(file).unwrap();
+        let certs = pe.certificates(file).unwrap();
 
-        let cert = certs.next().unwrap();
-
-        assert_eq!(cert.header.dw_length, 1684);
-        assert_eq!(cert.header.w_revision, 512);
-        assert_eq!(cert.header.w_certificate_type, 2);
+        for cert in certs {
+            assert_eq!(cert.header.dw_length, 1684);
+            assert_eq!(cert.header.w_revision, 512);
+            assert_eq!(cert.header.w_certificate_type, 2);
+        }
     }
 }
