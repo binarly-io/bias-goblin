@@ -6,6 +6,7 @@
 use alloc::vec::Vec;
 use scroll::Pread;
 
+pub mod certs;
 pub mod characteristic;
 pub mod data_directories;
 pub mod debug;
@@ -26,6 +27,7 @@ use crate::strtab;
 
 use log::debug;
 
+use self::certs::WinCertificates;
 use self::relocation::BaseRelocations;
 
 #[derive(Debug)]
@@ -114,7 +116,8 @@ impl<'a> PE<'a> {
                         &sections,
                         file_alignment,
                         opts,
-                    ).unwrap_or_default();
+                    )
+                    .unwrap_or_default();
                     name = ed.name;
                     debug!("name: {:#?}", name);
                     export_data = Some(ed);
@@ -129,7 +132,8 @@ impl<'a> PE<'a> {
                         &sections,
                         file_alignment,
                         opts,
-                    ).ok()
+                    )
+                    .ok()
                 } else {
                     import::ImportData::parse_with_opts::<u32>(
                         bytes,
@@ -137,14 +141,17 @@ impl<'a> PE<'a> {
                         &sections,
                         file_alignment,
                         opts,
-                    ).ok()
+                    )
+                    .ok()
                 };
                 debug!("import data {:#?}", id);
                 if let Some(id) = id {
                     if is_64 {
-                        imports = import::Import::parse::<u64>(bytes, &id, &sections).unwrap_or_default();
+                        imports =
+                            import::Import::parse::<u64>(bytes, &id, &sections).unwrap_or_default();
                     } else {
-                        imports = import::Import::parse::<u32>(bytes, &id, &sections).unwrap_or_default();
+                        imports =
+                            import::Import::parse::<u32>(bytes, &id, &sections).unwrap_or_default();
                     }
                     libraries = id
                         .import_data
@@ -166,7 +173,8 @@ impl<'a> PE<'a> {
                     &sections,
                     file_alignment,
                     opts,
-                ).ok();
+                )
+                .ok();
             }
 
             if header.coff_header.machine == header::COFF_MACHINE_X86_64 {
@@ -181,7 +189,8 @@ impl<'a> PE<'a> {
                         &sections,
                         file_alignment,
                         opts,
-                    ).ok();
+                    )
+                    .ok();
                 }
             }
         }
@@ -219,6 +228,19 @@ impl<'a> PE<'a> {
         let reloc_bytes = bytes.pread_with(offset, relocs.size as usize).ok()?;
 
         BaseRelocations::parse(reloc_bytes).ok()
+    }
+
+    pub fn certificates(&self, bytes: &'a [u8]) -> Option<WinCertificates<'a>> {
+        let opt = self.header.optional_header.as_ref()?;
+        let dds = &opt.data_directories;
+
+        let certs = dds.get_certificate_table().as_ref()?;
+
+        let certs_bytes = bytes
+            .pread_with(certs.virtual_address as usize, certs.size as usize)
+            .ok()?;
+
+        WinCertificates::parse(certs_bytes).ok()
     }
 }
 
