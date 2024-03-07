@@ -1,37 +1,42 @@
-use crate::error;
 use scroll::{ctx, Pread, Pwrite};
+
+use crate::error;
 
 pub const WIN_CERT_TYPE_PKCS_SIGNED_DATA: u16 = 0x0002;
 pub const WIN_CERT_TYPE_EFI_PKCS115: u16 = 0x0EF0;
 pub const WIN_CERT_TYPE_EFI_GUID: u16 = 0x0EF1;
 
-#[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq, Default, Pread, Pwrite)]
+#[repr(C)]
 pub struct WinCertificateHeader {
     pub dw_length: u32,
     pub w_revision: u16,
     pub w_certificate_type: u16,
 }
 
-#[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
+#[repr(C)]
 pub struct WinCertificate<'a> {
     pub header: WinCertificateHeader,
     pub bytes: &'a [u8],
 }
 
 impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for WinCertificate<'a> {
-    type Error = scroll::Error;
+    type Error = error::Error;
 
     fn try_from_ctx(from: &'a [u8], ctx: scroll::Endian) -> Result<(Self, usize), Self::Error> {
         let offset = &mut 0;
         let header = from.gread_with::<WinCertificateHeader>(offset, ctx)?;
-        let bytes = from.gread_with::<&'a [u8]>(offset, header.dw_length as usize - *offset)?;
-        let _pad = from.gread_with::<&'a [u8]>(offset, header.dw_length as usize % 8)?;
-
-        let cert = Self { header, bytes };
-
-        Ok((cert, *offset))
+        if (header.dw_length as usize) < *offset {
+            Err(error::Error::Malformed(
+                "dw_length field in certificate header is smaller than header size".into(),
+            ))
+        } else {
+            let bytes = from.gread_with::<&'a [u8]>(offset, header.dw_length as usize - *offset)?;
+            let _pad = from.gread_with::<&'a [u8]>(offset, header.dw_length as usize % 8)?;
+            let cert = Self { header, bytes };
+            Ok((cert, *offset))
+        }
     }
 }
 
@@ -82,6 +87,7 @@ mod tests {
         let file = include_bytes!("/tmp/HelloWorld-MultiCerts.efi");
         let file = &file[..];
         let pe = PE::parse(file).unwrap();
+
         let certs = pe.certificates(file).unwrap();
 
         for cert in certs {
