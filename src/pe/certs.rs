@@ -33,7 +33,7 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for WinCertificate<'a> {
             ))
         } else {
             let bytes = from.gread_with::<&'a [u8]>(offset, header.dw_length as usize - *offset)?;
-            let _pad = from.gread_with::<&'a [u8]>(offset, header.dw_length as usize % 8)?;
+            let _pad = from.gread_with::<&'a [u8]>(offset, header.dw_length as usize % 8);
             let cert = Self { header, bytes };
             Ok((cert, *offset))
         }
@@ -84,7 +84,18 @@ mod tests {
 
     #[test]
     fn parse_certs_table() {
-        let file = include_bytes!("/tmp/HelloWorld-MultiCerts.efi");
+        let file = include_bytes!("../../tests/bins/RealtekLan.efi");
+        let file = &file[..];
+        let pe = PE::parse(file).unwrap();
+
+        let mut certs = pe.certificates(file).unwrap();
+        let cert = certs.next().unwrap();
+
+        assert_eq!(cert.header.dw_length, 8560);
+        assert_eq!(cert.header.w_revision, 512);
+        assert_eq!(cert.header.w_certificate_type, 2);
+
+        let file = include_bytes!("../../tests/bins/MultiCerts.efi");
         let file = &file[..];
         let pe = PE::parse(file).unwrap();
 
