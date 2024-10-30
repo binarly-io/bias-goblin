@@ -520,6 +520,7 @@ impl<'a> Segment<'a> {
 /// An opaque 32/64-bit container for Mach-o segments
 pub struct Segments<'a> {
     segments: Vec<Segment<'a>>,
+    #[allow(unused)]
     ctx: container::Ctx,
 }
 

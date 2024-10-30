@@ -403,6 +403,7 @@ if_alloc! {
     pub struct Dynamic {
         pub dyns: Vec<Dyn>,
         pub info: DynamicInfo,
+        #[allow(unused)]
         count: usize,
     }
 
