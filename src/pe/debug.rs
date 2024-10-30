@@ -151,8 +151,11 @@ impl<'a> CodeviewPDB70DebugInfo<'a> {
         let filename_length = idd.size_of_data as isize - 24;
         if filename_length < 0 || filename_length > 1024 {
             // the record is too short or too long to be plausible
-            log::warn!("ImageDebugDirectory size of data seems wrong: {:?}", idd.size_of_data);
-            return Ok(None)
+            log::warn!(
+                "ImageDebugDirectory size of data seems wrong: {:?}",
+                idd.size_of_data
+            );
+            return Ok(None);
         }
         let filename_length = filename_length as usize;
 
@@ -166,7 +169,9 @@ impl<'a> CodeviewPDB70DebugInfo<'a> {
         let mut signature: [u8; 16] = [0; 16];
         signature.copy_from_slice(bytes.gread_with(&mut offset, 16)?);
         let age: u32 = bytes.gread_with(&mut offset, scroll::LE)?;
-        let filename = &bytes[offset..offset + filename_length];
+        let Some(filename) = bytes.get(offset..offset + filename_length) else {
+            return Err(scroll::Error::BadOffset(offset).into());
+        };
 
         Ok(Some(CodeviewPDB70DebugInfo {
             codeview_signature,

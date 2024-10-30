@@ -396,6 +396,7 @@ pub enum IndexType {
 // TODO: add pretty printer fmt::Display with number of members, and names of members, along with
 // the values of the index symbols once implemented
 #[derive(Debug)]
+#[allow(unused)]
 /// An in-memory representation of a parsed Unix Archive
 pub struct Archive<'a> {
     // we can chuck this because the symbol index is a better representation, but we keep for
