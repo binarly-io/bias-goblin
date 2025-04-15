@@ -242,6 +242,10 @@ impl<'a> PE<'a> {
 
         WinCertificates::parse(certs_bytes).ok()
     }
+
+    pub fn subsystem(&self) -> Option<u16> {
+        Some(self.header.optional_header?.windows_fields.subsystem)
+    }
 }
 
 /// An analyzed COFF object

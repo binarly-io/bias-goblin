@@ -29,18 +29,15 @@ impl<'a> TE<'a> {
         let mut debug_data = None;
 
         if let Some(debug_table) = *header.data_directories.get_debug_table() {
-            let image_debug_directory = debug::ImageDebugDirectory::parse(
-                bytes,
-                debug_table,
-                &sections,
-                0x10,
-            )?;
+            let image_debug_directory =
+                debug::ImageDebugDirectory::parse(bytes, debug_table, &sections, 0x10)?;
 
             // NOTE: we need to adjust the pointer to raw data
             let codeview_pdb70_debug_info = debug::CodeviewPDB70DebugInfo::parse(
                 bytes,
                 &debug::ImageDebugDirectory {
-                    pointer_to_raw_data: image_debug_directory.pointer_to_raw_data
+                    pointer_to_raw_data: image_debug_directory
+                        .pointer_to_raw_data
                         .wrapping_sub(header.stripped_size as u32)
                         .wrapping_add(SIZEOF_TE_HEADER as u32),
                     ..image_debug_directory
@@ -84,5 +81,9 @@ impl<'a> TE<'a> {
 
     pub fn image_base(&self) -> u64 {
         self.header.image_base
+    }
+
+    pub fn subsystem(&self) -> u8 {
+        self.header.subsystem
     }
 }
