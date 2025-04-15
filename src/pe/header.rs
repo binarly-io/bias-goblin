@@ -77,6 +77,20 @@ pub const SIZEOF_COFF_HEADER: usize = 20;
 /// PE\0\0, little endian
 pub const PE_MAGIC: u32 = 0x0000_4550;
 pub const SIZEOF_PE_MAGIC: usize = 4;
+
+pub const PE_SUBSYSTEM_UNKNOWN: u8 = 0;
+pub const PE_SUBSYSTEM_NATIVE: u8 = 1;
+pub const PE_SUBSYSTEM_WINDOWS_GUI: u8 = 2;
+pub const PE_SUBSYSTEM_WINDOWS_CUI: u8 = 3;
+pub const PE_SUBSYSTEM_POSIX_CUI: u8 = 7;
+pub const PE_SUBSYSTEM_WINDOWS_CE_GUI: u8 = 9;
+pub const PE_SUBSYSTEM_EFI_APPLICATION: u8 = 10;
+pub const PE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER: u8 = 11;
+pub const PE_SUBSYSTEM_EFI_RUNTIME_DRIVER: u8 = 12;
+pub const PE_SUBSYSTEM_EFI_ROM: u8 = 13;
+pub const PE_SUBSYSTEM_XBOX: u8 = 14;
+pub const PE_SUBSYSTEM_WINDOWS_BOOT_APPLICATION: u8 = 16;
+
 /// The contents of this field are assumed to be applicable to any machine type
 pub const COFF_MACHINE_UNKNOWN: u16 = 0x0;
 /// Matsushita AM33
