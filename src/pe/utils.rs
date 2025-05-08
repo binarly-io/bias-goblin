@@ -225,3 +225,18 @@ where
     let result: T = bytes.pread_with(offset, scroll::LE)?;
     Ok(result)
 }
+
+pub(crate) fn pad(length: usize, alignment: Option<usize>) -> Option<Vec<u8>> {
+    match alignment {
+        Some(alignment) => {
+            let overhang = length % alignment;
+            if overhang != 0 {
+                let repeat = alignment - overhang;
+                Some(vec![0u8; repeat])
+            } else {
+                None
+            }
+        }
+        None => None,
+    }
+}

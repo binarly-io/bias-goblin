@@ -119,7 +119,10 @@ pub struct WindowsFields32 {
     pub number_of_rva_and_sizes: u32,
 }
 
+/// Convenience constant for `core::mem::size_of::<WindowsFields32>()`.
 pub const SIZEOF_WINDOWS_FIELDS_32: usize = 68;
+/// Offset of the `check_sum` field in [`WindowsFields32`].
+pub const OFFSET_WINDOWS_FIELDS_32_CHECKSUM: usize = 36;
 
 /// 64-bit Windows specific fields
 #[repr(C)]
@@ -148,7 +151,10 @@ pub struct WindowsFields64 {
     pub number_of_rva_and_sizes: u32,
 }
 
+/// Convenience constant for `core::mem::size_of::<WindowsFields64>()`.
 pub const SIZEOF_WINDOWS_FIELDS_64: usize = 88;
+/// Offset of the `check_sum` field in [`WindowsFields64`].
+pub const OFFSET_WINDOWS_FIELDS_64_CHECKSUM: usize = 40;
 
 // /// Generic 32/64-bit Windows specific fields
 // #[derive(Debug, PartialEq, Copy, Clone, Default)]

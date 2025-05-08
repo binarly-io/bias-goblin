@@ -6,7 +6,8 @@
 use alloc::vec::Vec;
 use scroll::Pread;
 
-pub mod certs;
+pub mod authenticode;
+pub mod certificate_table;
 pub mod characteristic;
 pub mod data_directories;
 pub mod debug;
@@ -25,14 +26,17 @@ use crate::container;
 use crate::error;
 use crate::strtab;
 
-use log::debug;
+use log::{debug, warn};
 
-use self::certs::WinCertificates;
+use self::options::ParseMode;
 use self::relocation::BaseRelocations;
 
 #[derive(Debug)]
 /// An analyzed PE32/PE32+ binary
 pub struct PE<'a> {
+    /// Underlying bytes
+    bytes: &'a [u8],
+    authenticode_excluded_sections: Option<authenticode::ExcludedSections>,
     /// The PE header
     pub header: header::Header,
     /// A list of the sections in this PE binary
@@ -63,6 +67,8 @@ pub struct PE<'a> {
     pub debug_data: Option<debug::DebugData<'a>>,
     /// Exception handling and stack unwind information, if any, contained in the PE header
     pub exception_data: Option<exception::ExceptionData<'a>>,
+    /// Certificates present, if any, described by the Certificate Table
+    pub certificates: certificate_table::CertificateDirectoryTable<'a>,
 }
 
 impl<'a> PE<'a> {
@@ -74,11 +80,15 @@ impl<'a> PE<'a> {
     /// Reads a PE binary from the underlying `bytes`
     pub fn parse_with_opts(bytes: &'a [u8], opts: &options::ParseOptions) -> error::Result<Self> {
         let header = header::Header::parse(bytes)?;
+        let mut authenticode_excluded_sections = None;
+
         debug!("{:#?}", header);
-        let offset = &mut (header.dos_header.pe_pointer as usize
+        let optional_header_offset = header.dos_header.pe_pointer as usize
             + header::SIZEOF_PE_MAGIC
-            + header::SIZEOF_COFF_HEADER
-            + header.coff_header.size_of_optional_header as usize);
+            + header::SIZEOF_COFF_HEADER;
+        let offset =
+            &mut (optional_header_offset + header.coff_header.size_of_optional_header as usize);
+
         let sections = header.coff_header.sections(bytes, offset)?;
         let is_lib = characteristic::is_dll(header.coff_header.characteristics);
         let mut entry = 0;
@@ -91,8 +101,41 @@ impl<'a> PE<'a> {
         let mut libraries = vec![];
         let mut debug_data = None;
         let mut exception_data = None;
+        let mut certificates = Default::default();
         let mut is_64 = false;
         if let Some(optional_header) = header.optional_header {
+            // Sections we are assembling through the parsing, eventually, it will be passed
+            // to the authenticode_sections attribute of `PE`.
+            let (checksum, datadir_entry_certtable) = match optional_header.standard_fields.magic {
+                optional_header::MAGIC_32 => {
+                    let standard_field_offset =
+                        optional_header_offset + optional_header::SIZEOF_STANDARD_FIELDS_32;
+                    let checksum_field_offset =
+                        standard_field_offset + optional_header::OFFSET_WINDOWS_FIELDS_32_CHECKSUM;
+                    (
+                        checksum_field_offset..checksum_field_offset + 4,
+                        optional_header_offset + 128..optional_header_offset + 136,
+                    )
+                }
+                optional_header::MAGIC_64 => {
+                    let standard_field_offset =
+                        optional_header_offset + optional_header::SIZEOF_STANDARD_FIELDS_64;
+                    let checksum_field_offset =
+                        standard_field_offset + optional_header::OFFSET_WINDOWS_FIELDS_64_CHECKSUM;
+
+                    (
+                        checksum_field_offset..checksum_field_offset + 4,
+                        optional_header_offset + 144..optional_header_offset + 152,
+                    )
+                }
+                magic => {
+                    return Err(error::Error::Malformed(format!(
+                        "Unsupported header magic ({:#x})",
+                        magic
+                    )))
+                }
+            };
+
             entry = optional_header.standard_fields.address_of_entry_point as usize;
             image_base = optional_header.windows_fields.image_base as usize;
             is_64 = optional_header.container()? == container::Container::Big;
@@ -193,8 +236,44 @@ impl<'a> PE<'a> {
                     .ok();
                 }
             }
+
+            // Parse attribute certificates unless opted out of
+            let certificate_table_size = if opts.parse_attribute_certificates {
+                if let Some(certificate_table) =
+                    *optional_header.data_directories.get_certificate_table()
+                {
+                    let certificates_result = certificate_table::enumerate_certificates(
+                        bytes,
+                        certificate_table.virtual_address,
+                        certificate_table.size,
+                    );
+
+                    certificates = match opts.parse_mode {
+                        ParseMode::Strict => certificates_result?,
+                        ParseMode::Permissive => certificates_result.unwrap_or_else(|err| {
+                            warn!("Cannot parse CertificateTable: {:?}", err);
+                            Default::default()
+                        }),
+                    };
+
+                    certificate_table.size as usize
+                } else {
+                    0
+                }
+            } else {
+                0
+            };
+
+            authenticode_excluded_sections = Some(authenticode::ExcludedSections::new(
+                checksum,
+                datadir_entry_certtable,
+                certificate_table_size,
+                optional_header.windows_fields.size_of_headers as usize,
+            ));
         }
         Ok(PE {
+            bytes,
+            authenticode_excluded_sections,
             header,
             sections,
             size: 0,
@@ -210,6 +289,7 @@ impl<'a> PE<'a> {
             libraries,
             debug_data,
             exception_data,
+            certificates,
         })
     }
 
@@ -228,19 +308,6 @@ impl<'a> PE<'a> {
         let reloc_bytes = bytes.pread_with(offset, relocs.size as usize).ok()?;
 
         BaseRelocations::parse(reloc_bytes).ok()
-    }
-
-    pub fn certificates(&self, bytes: &'a [u8]) -> Option<WinCertificates<'a>> {
-        let opt = self.header.optional_header.as_ref()?;
-        let dds = &opt.data_directories;
-
-        let certs = dds.get_certificate_table().as_ref()?;
-
-        let certs_bytes = bytes
-            .pread_with(certs.virtual_address as usize, certs.size as usize)
-            .ok()?;
-
-        WinCertificates::parse(certs_bytes).ok()
     }
 
     pub fn subsystem(&self) -> Option<u16> {
