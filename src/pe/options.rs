@@ -27,7 +27,7 @@ impl Default for ParseOptions {
         ParseOptions {
             resolve_rva: true,
             parse_attribute_certificates: true,
-            parse_mode: ParseMode::Strict,
+            parse_mode: ParseMode::Permissive,
         }
     }
 }
