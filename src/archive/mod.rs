@@ -342,6 +342,12 @@ impl<'a> NameIndex<'a> {
     pub fn parse(buffer: &'a [u8], offset: &mut usize, size: usize) -> Result<NameIndex<'a>> {
         // This is a total hack, because strtab returns "" if idx == 0, need to change
         // but previous behavior might rely on this, as ELF strtab's have "" at 0th index...
+        if size == 0 {
+            return Err(Error::Malformed(format!(
+                "Invalid size for NameIndex at {offset:#x}",
+            )));
+        }
+
         let hacked_size = size + 1;
         let strtab = strtab::Strtab::parse(buffer, *offset - 1, hacked_size, b'\n')?;
         // precious time was lost when refactoring because strtab::parse doesn't update the mutable seek...

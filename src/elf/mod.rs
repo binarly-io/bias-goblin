@@ -37,6 +37,9 @@
 //! To use the automagic ELF datatype union parser, you _must_ enable/opt-in to the  `elf64`, `elf32`, and
 //! `endian_fd` features if you disable `default`.
 
+use core::ffi::CStr;
+use std::borrow::Cow;
+
 use crate::elf::dynamic::DF_1_PIE;
 
 #[macro_use]
@@ -124,7 +127,7 @@ if_sylvan! {
         /// The binary's soname, if it has one
         pub soname: Option<&'a str>,
         /// The binary's program interpreter (e.g., dynamic linker), if it has one
-        pub interpreter: Option<&'a str>,
+        pub interpreter: Option<Cow<'a, str>>,
         /// A list of this binary's dynamic libraries it uses, if there are any
         pub libraries: Vec<&'a str>,
         /// A list of runtime search paths for this binary's dynamic libraries it uses, if there
@@ -283,14 +286,20 @@ if_sylvan! {
 
             let program_headers = ProgramHeader::parse(bytes, header.e_phoff as usize, header.e_phnum as usize, ctx)?;
 
-            let mut interpreter = None;
-            for ph in &program_headers {
-                if ph.p_type == program_header::PT_INTERP && ph.p_filesz != 0 {
-                    let count = (ph.p_filesz - 1) as usize;
-                    let offset = ph.p_offset as usize;
-                    interpreter = bytes.pread_with::<&str>(offset, ::scroll::ctx::StrCtx::Length(count)).ok();
+            let interpreter = program_headers.iter().find_map(|ph| {
+                if ph.p_type != program_header::PT_INTERP || ph.p_filesz == 0 {
+                    return None;
                 }
-            }
+
+                let offset = ph.p_offset as usize;
+                let end = offset.checked_add(ph.p_filesz as usize)?;
+                let data = bytes.get(offset..end)?;
+
+                data.pread::<&CStr>(0)
+                    .ok()
+                    .map(|cstr| cstr.to_string_lossy())
+
+            });
 
             let section_headers = SectionHeader::parse(bytes, header.e_shoff as usize, header.e_shnum as usize, ctx)?;
 

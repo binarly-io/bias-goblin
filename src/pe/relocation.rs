@@ -222,11 +222,13 @@ impl<'a> Iterator for BaseRelocations<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         if self.block_offset < self.block_header.size_of_block as usize {
             // read a new entry
-            let bytes = self.bytes
+            let bytes = self
+                .bytes
                 .pread_with::<&[u8]>(self.offset, self.block_header.size_of_block as usize)
                 .ok()?;
 
-            bytes.gread_with::<BaseRelocationEntry>(&mut self.block_offset, scroll::LE)
+            bytes
+                .gread_with::<BaseRelocationEntry>(&mut self.block_offset, scroll::LE)
                 .ok()
                 .map(|entry| BaseRelocation {
                     header: self.block_header,

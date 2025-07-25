@@ -569,7 +569,7 @@ macro_rules! elf_dyn_std_impl {
                 let mut needed = Vec::with_capacity(count);
                 for dynamic in dyns {
                     if u64::from(dynamic.d_tag) == DT_NEEDED {
-                        let lib = &(*strtab)[dynamic.d_val as usize];
+                        let lib = &(&(*strtab))[dynamic.d_val as usize];
                         needed.push(lib);
                     }
                 }

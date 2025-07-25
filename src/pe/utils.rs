@@ -112,7 +112,9 @@ pub fn find_raw_offset<T: PESectionTable>(
             section.name().unwrap_or(""),
             rva,
             section.virtual_address(),
-            section.virtual_address().wrapping_add(section.virtual_size())
+            section
+                .virtual_address()
+                .wrapping_add(section.virtual_size())
         );
         if is_in_section(rva, section, file_alignment) {
             let offset = (section.pointer_to_raw_data() as usize)

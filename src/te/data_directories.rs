@@ -1,5 +1,5 @@
 use crate::error;
-use scroll::{ctx, Pwrite, Pread};
+use scroll::{ctx, Pread, Pwrite};
 
 pub use crate::pe::data_directories::{DataDirectory, SIZEOF_DATA_DIRECTORY};
 
@@ -13,7 +13,10 @@ pub struct DataDirectories {
 }
 
 impl DataDirectories {
-    fn parse_single(bytes: &[u8], offset: &mut usize) -> Result<Option<DataDirectory>, scroll::Error> {
+    fn parse_single(
+        bytes: &[u8],
+        offset: &mut usize,
+    ) -> Result<Option<DataDirectory>, scroll::Error> {
         let dir = bytes.gread_with::<DataDirectory>(offset, scroll::LE)?;
         if dir.virtual_address == 0 && dir.size == 0 {
             Ok(None)
