@@ -31,7 +31,7 @@ use log::{debug, warn};
 use self::options::ParseMode;
 use self::relocation::BaseRelocations;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// An analyzed PE32/PE32+ binary
 pub struct PE<'a> {
     /// Underlying bytes

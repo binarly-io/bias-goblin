@@ -399,7 +399,7 @@ if_alloc! {
         }
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub struct Dynamic {
         pub dyns: Vec<Dyn>,
         pub info: DynamicInfo,
@@ -595,7 +595,7 @@ macro_rules! elf_dynamic_info_std_impl {
         }
 
         /// Important dynamic linking info generated via a single pass through the `_DYNAMIC` array
-        #[derive(Default, PartialEq)]
+        #[derive(Clone, Default, PartialEq)]
         pub struct DynamicInfo {
             pub rela: usize,
             pub relasz: usize,

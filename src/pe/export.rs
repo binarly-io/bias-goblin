@@ -35,7 +35,7 @@ impl ExportDirectoryTable {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ExportAddressTableEntry {
     ExportRVA(u32),
     ForwarderRVA(u32),
@@ -55,7 +55,7 @@ pub type ExportNamePointerTable = Vec<u32>;
 /// Should obey the formula `idx = ordinal - ordinalbase`
 pub type ExportOrdinalTable = Vec<u16>;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 /// Export data contains the `dll` name which other libraries can import symbols by (two-level namespace), as well as other important indexing data allowing symbol lookups
 pub struct ExportData<'a> {
     pub name: Option<&'a str>,
@@ -194,7 +194,7 @@ impl<'a> ExportData<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// PE binaries have two kinds of reexports, either specifying the dll's name, or the ordinal value of the dll
 pub enum Reexport<'a> {
     DLLName { export: &'a str, lib: &'a str },
@@ -255,7 +255,7 @@ impl<'a> Reexport<'a> {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 /// An exported symbol in this binary, contains synthetic data (name offset, etc., are computed)
 pub struct Export<'a> {
     pub name: Option<&'a str>,

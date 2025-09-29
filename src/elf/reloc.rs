@@ -388,7 +388,7 @@ if_alloc! {
         }
     }
 
-    #[derive(Default)]
+    #[derive(Clone, Default)]
     /// An ELF section containing relocations, allowing lazy iteration over symbols.
     pub struct RelocSection<'a> {
         bytes: &'a [u8],

@@ -653,6 +653,7 @@ impl<'a> IntoIterator for &'_ UnwindInfo<'a> {
 }
 
 /// Exception handling and stack unwind information for functions in the image.
+#[derive(Clone)]
 pub struct ExceptionData<'a> {
     bytes: &'a [u8],
     offset: usize,

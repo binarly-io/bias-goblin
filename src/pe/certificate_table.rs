@@ -98,7 +98,7 @@ pub struct AttributeCertificateHeader {
 
 const CERTIFICATE_DATA_OFFSET: u32 = 8;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AttributeCertificate<'a> {
     pub length: u32,
     pub revision: AttributeCertificateRevision,

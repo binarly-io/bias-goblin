@@ -190,7 +190,7 @@ impl<'a> Member<'a> {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 /// The special index member signified by the name `'/'`.
 /// The data element contains a list of symbol indexes and symbol names, giving their offsets
 /// into the archive for a given name.
@@ -333,7 +333,7 @@ impl<'a> Index<'a> {
 /// Member names greater than 16 bytes are indirectly referenced using a `/<idx` schema,
 /// where `idx` is an offset into a newline delimited string table directly following the `//` member
 /// of the archive.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 struct NameIndex<'a> {
     strtab: strtab::Strtab<'a>,
 }
@@ -384,7 +384,7 @@ impl<'a> NameIndex<'a> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 /// The type of symbol index can be present in an archive. Can serve as an indication of the
 /// archive format.
 pub enum IndexType {
@@ -401,7 +401,7 @@ pub enum IndexType {
 
 // TODO: add pretty printer fmt::Display with number of members, and names of members, along with
 // the values of the index symbols once implemented
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(unused)]
 /// An in-memory representation of a parsed Unix Archive
 pub struct Archive<'a> {

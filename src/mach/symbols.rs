@@ -386,6 +386,7 @@ impl<'a> Iterator for SymbolIterator<'a> {
 }
 
 /// A zero-copy "nlist" style symbol table ("stab"), including the string table
+#[derive(Clone)]
 pub struct Symbols<'a> {
     data: &'a [u8],
     start: usize,

@@ -486,7 +486,7 @@ if_alloc! {
 }
 
 if_alloc! {
-    #[derive(Default)]
+    #[derive(Clone, Default)]
     /// An ELF symbol table, allowing lazy iteration over symbols
     pub struct Symtab<'a> {
         bytes: &'a [u8],

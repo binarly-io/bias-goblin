@@ -158,7 +158,7 @@ struct ElfVernaux {
  ********************/
 
 /// Helper struct to iterate over [Symbol Version][Versym] entries.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VersymSection<'a> {
     bytes: &'a [u8],
     ctx: container::Ctx,
@@ -316,7 +316,7 @@ impl From<ElfVersym> for Versym {
 
 /// Helper struct to iterate over [Version Definition][Verdef] and [Version Definition
 /// Auxiliary][Verdaux] entries.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VerdefSection<'a> {
     /// String table used to resolve version strings.
     bytes: &'a [u8],
@@ -570,7 +570,7 @@ pub struct Verdaux {
 
 /// Helper struct to iterate over [Version Needed][Verneed] and [Version Needed
 /// Auxiliary][Vernaux] entries.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VerneedSection<'a> {
     bytes: &'a [u8],
     count: usize,

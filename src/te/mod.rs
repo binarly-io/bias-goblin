@@ -11,7 +11,7 @@ pub mod debug;
 pub mod header;
 pub mod section_table;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TE<'a> {
     pub header: header::Header,
     pub sections: Vec<section_table::SectionTable>,

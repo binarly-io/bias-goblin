@@ -53,6 +53,7 @@ pub fn parse_magic_and_ctx(
 }
 
 /// A cross-platform, zero-copy, endian-aware, 32/64 bit Mach-o binary parser
+#[derive(Clone)]
 pub struct MachO<'a> {
     /// The mach-o header
     pub header: header::Header,

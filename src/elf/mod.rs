@@ -91,7 +91,7 @@ if_sylvan! {
     pub type SectionHeaders = Vec<SectionHeader>;
     pub type ShdrIdx = usize;
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     /// An ELF binary. The underlying data structures are read according to the headers byte order and container size (32 or 64).
     pub struct Elf<'a> {
         /// The ELF header, which provides a rudimentary index into the rest of the binary

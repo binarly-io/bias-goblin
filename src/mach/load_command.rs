@@ -1331,7 +1331,7 @@ pub fn cmd_to_str(cmd: u32) -> &'static str {
 // Typesafe Command Variants
 ///////////////////////////////////////////
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
 /// The various load commands as a cast-free variant/enum
 pub enum CommandVariant {
@@ -1733,7 +1733,7 @@ impl CommandVariant {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// A tagged LoadCommand union
 pub struct LoadCommand {
     /// The offset this load command occurs at

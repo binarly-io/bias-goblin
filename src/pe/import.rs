@@ -159,7 +159,7 @@ impl<'a> SyntheticImportLookupTableEntry<'a> {
 pub type ImportAddressTable = Vec<u64>;
 
 #[repr(C)]
-#[derive(Debug, Pread, Pwrite, SizeWith)]
+#[derive(Debug, Clone, Pread, Pwrite, SizeWith)]
 pub struct ImportDirectoryEntry {
     pub import_lookup_table_rva: u32,
     pub time_date_stamp: u32,
@@ -180,7 +180,7 @@ impl ImportDirectoryEntry {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SyntheticImportDirectoryEntry<'a> {
     pub import_directory_entry: ImportDirectoryEntry,
     /// Computed
@@ -295,7 +295,7 @@ impl<'a> SyntheticImportDirectoryEntry<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Contains a list of synthesized import data for this binary, e.g., which symbols from which libraries it is importing from
 pub struct ImportData<'a> {
     pub import_data: Vec<SyntheticImportDirectoryEntry<'a>>,
@@ -362,7 +362,7 @@ impl<'a> ImportData<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// A synthesized symbol import, the name is pre-indexed, and the binary offset is computed, as well as which dll it belongs to
 pub struct Import<'a> {
     pub name: Cow<'a, str>,

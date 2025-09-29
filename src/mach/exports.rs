@@ -173,6 +173,7 @@ impl<'a> Export<'a> {
 }
 
 /// An export trie efficiently encodes all of the symbols exported by this binary for dynamic linking
+#[derive(Clone)]
 pub struct ExportTrie<'a> {
     data: &'a [u8],
     location: Range<usize>,
